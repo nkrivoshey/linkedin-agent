@@ -91,7 +91,7 @@ def build_pipeline(cfg, bot: PostApprovalBot):
         image_url = generator.pick_best_image(candidates, post_text)
         images.mark_used(image_url, candidates)
         custom_article = Article(title="Custom Post", url="", summary=raw_text,
-                                 source="Custom", published_at="", keywords=keywords)
+                                 source="Custom", published_at="", keywords=image_keywords or ["Custom"])
         record = notion.create_draft(custom_article, post_text, image_url, ["Custom"])
         notion.update_status(record.notion_page_id, "Pending")
         record.status = "Pending"
