@@ -29,13 +29,19 @@ URL: {url}
 Post style: {post_style}
 
 Format requirements:
-- Hook: 1-2 punchy opening lines (surprising fact, question, or bold statement)
+- Hook: 1-2 lines that STOP the scroll — use a counterintuitive stat, bold claim, or "hot take". Never start with "I" or generic opener.
 - Body: 3-4 short paragraphs, 150-200 words total. Be specific — use numbers, examples, frameworks.
-- Links: include the source URL ({url}) naturally in the text. If the article mentions a real GitHub repo, tool page, or paper — include that link too.
-- CTA: one closing question or reflection to engage the audience
-- ALWAYS end the post with a blank line followed by 5-7 hashtags on the last line
+- Links: include the source URL ({url}) naturally in the text.
+- CTA (MANDATORY engagement trigger): end the body with ONE of these — a specific debate question ("Agree or disagree: [bold statement]?"), a poll ("A or B: which matters more?"), or a personal challenge ("Has your team made this mistake? Drop a 🔥 if yes"). Never use generic "What do you think?"
+- ALWAYS end the post with a blank line followed by 6-9 hashtags on the last line
 
-Tone: professional but conversational, data-driven, opinionated, no buzzwords, no fluff.
+Hashtag rules (MANDATORY):
+- 2-3 topic-specific tags matching the article
+- 3-4 career visibility tags from: #DataAnalyst #Analytics #SQL #Python #PowerBI #BusinessIntelligence #DataScience #DataEngineering #AnalyticsEngineering
+- 1-2 broad reach tags: #DataDriven #AI #TechLeadership
+- NEVER use #OpenToWork or #HiringNow
+
+Tone: professional but direct, opinionated, data-driven. One strong opinion per post. No buzzwords, no fluff.
 Write the post only — no meta-commentary, no "Here is your post:".
 Hashtags are MANDATORY — never omit them."""
 
@@ -84,21 +90,47 @@ class ContentGenerator:
 
     def _pick_post_style(self) -> str:
         styles = [
-            ("pure_insight", 40),
-            ("with_case", 40),
-            ("personal_story", 20),
+            ("pure_insight", 30),
+            ("with_case", 30),
+            ("personal_story", 15),
+            ("personal_project", 15),
+            ("health_productivity", 10),
         ]
         names, weights = zip(*styles)
         chosen = random.choices(names, weights=weights, k=1)[0]
 
         if chosen == "pure_insight":
-            return "Pure insight post — share the key takeaway from the article without a personal story. Focus on what this means for data professionals."
+            return (
+                "Pure insight post — share the key takeaway from the article. "
+                "Focus on what this means for data professionals. Include a bold opinion or contrarian take."
+            )
         elif chosen == "with_case":
             case = self._pick_case()
-            return f"Insight post with a brief personal reference. Somewhere in the body, naturally weave in this real experience (1-2 sentences max): '{case}'"
-        else:
+            return (
+                f"Insight post with a personal reference. Naturally weave in this real experience "
+                f"(1-2 sentences max): '{case}'. Then expand on the broader lesson from the article."
+            )
+        elif chosen == "personal_story":
             case = self._pick_case()
-            return f"Personal story post — open with this real experience: '{case}'. Then connect it to the article topic and broader lesson."
+            return (
+                f"Personal story post — open with this real experience: '{case}'. "
+                f"Connect it to the article topic. Make it feel like a lesson learned, not a brag."
+            )
+        elif chosen == "personal_project":
+            case = self._pick_case()
+            return (
+                f"Portfolio showcase post — use the article as a springboard to deep-dive on this "
+                f"real project: '{case}'. Go specific: what was the technical challenge, what decision "
+                f"was made, what was the measured outcome. This is a self-presentation post — make it "
+                f"compelling for a hiring manager or potential collaborator reading it."
+            )
+        else:  # health_productivity
+            return (
+                "Health & productivity insight post — connect the article topic to focus, deep work, "
+                "cognitive performance, or team wellbeing. Share a practical take: what data professionals "
+                "can do to stay sharp and productive. Personal angle welcome but not required. "
+                "Tone: grounded and practical, not motivational fluff."
+            )
 
     def generate(self, article: Article) -> str:
         post_style = self._pick_post_style()
@@ -169,16 +201,19 @@ class ContentGenerator:
 
     def suggest_image_keywords(self, title: str, post_text: str) -> list[str]:
         prompt = (
-            f"Given this LinkedIn post, suggest 2-3 specific visual search terms for Unsplash "
-            f"to find a beautiful, relevant photo.\n\n"
-            f"Post title: {title}\n\n"
-            f"Post text (first 300 chars): {post_text[:300]}\n\n"
-            f"Requirements:\n"
-            f"- Think visually: what scene, object, or setting fits this post?\n"
-            f"- Be specific: 'data center server room' beats 'technology'\n"
-            f"- Professional, LinkedIn-appropriate imagery\n\n"
-            f"Return ONLY a comma-separated list of 2-3 terms, nothing else.\n"
-            f"Example: data center, server room, cloud computing"
+            f"You need to find a photo on Unsplash that visually matches this LinkedIn post.\n\n"
+            f"Article title: {title}\n"
+            f"Post excerpt: {post_text[:200]}\n\n"
+            f"Generate 3 Unsplash search queries, from most specific to most general:\n"
+            f"1. A very specific visual scene or object directly related to the article title\n"
+            f"2. A professional setting that fits the topic\n"
+            f"3. A broader but still relevant fallback\n\n"
+            f"Rules:\n"
+            f"- Think like a photo editor: what IMAGE would run alongside this story in a magazine?\n"
+            f"- Avoid abstract concepts — search for things that photograph well\n"
+            f"- Good: 'analyst working laptop night office', 'neural network chip closeup', 'team meeting whiteboard data'\n"
+            f"- Bad: 'technology', 'innovation', 'business'\n\n"
+            f"Return ONLY 3 comma-separated search queries, nothing else."
         )
         try:
             result = self._call_with_retry(prompt)

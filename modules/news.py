@@ -25,6 +25,17 @@ KEYWORD_CATEGORIES = {
         "business intelligence", "KPI dashboard", "revenue analytics",
         "data-driven business", "startup metrics", "SaaS analytics",
     ],
+    "statistics_research": [
+        "data statistics report", "research study findings", "industry survey results",
+        "benchmark report 2025", "market analysis data", "economic data trend",
+        "survey data insights",
+    ],
+    "productivity_health": [
+        "deep work productivity science", "workplace focus performance",
+        "cognitive performance work", "sleep productivity research",
+        "exercise mental performance", "remote work wellbeing",
+        "team productivity data",
+    ],
 }
 
 DEFAULT_KEYWORDS = [kw for kws in KEYWORD_CATEGORIES.values() for kw in kws]
@@ -60,8 +71,9 @@ class NewsCollector:
     def _fetch_from_newsapi(self, skip_urls: set[str]) -> list[Article]:
         # AI + analytics get 65% of the weight
         categories = list(KEYWORD_CATEGORIES.keys())
-        weights = {"ai_models": 30, "data_analytics": 35, "product_metrics": 10,
-                   "data_science": 15, "business_tech": 10}
+        weights = {"ai_models": 25, "data_analytics": 30, "product_metrics": 8,
+                   "data_science": 15, "business_tech": 10,
+                   "statistics_research": 7, "productivity_health": 5}
         chosen = random.choices(categories, weights=[weights[c] for c in categories], k=1)[0]
         category_kws = KEYWORD_CATEGORIES[chosen]
         query = " OR ".join(f'"{kw}"' for kw in random.sample(category_kws, min(4, len(category_kws))))

@@ -109,7 +109,9 @@ async def main():
     _refs: dict = {}
 
     async def on_publish(r): await _refs["publish"](r)
-    async def on_skip(r): await _refs["skip"](r)
+    async def on_skip(r):
+        await _refs["skip"](r)
+        await _refs["pipeline"]()
     async def on_regen(a, r, f): return await _refs["regen"](a, r, f)
     async def manual_trigger(): await _refs["pipeline"]()
     async def on_custom(text): await _refs["custom"](text)
