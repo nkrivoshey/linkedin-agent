@@ -1,4 +1,13 @@
 from dataclasses import dataclass, field
+from typing import Literal
+
+ContentType = Literal[
+    "statistical_method",
+    "data_analytics_tip",
+    "case_study",
+    "ai_tools_for_analysts",
+    "industry_insight",
+]
 
 
 @dataclass
@@ -24,3 +33,13 @@ class PostRecord:
     generation_count: int = 1
     linkedin_url: str = ""
     publish_date: str = ""
+
+
+@dataclass
+class GeneratedPost:
+    post_text: str        # Full LinkedIn post text
+    image_prompt: str     # Prompt for image generation
+    content_type: str     # statistical_method | data_analytics_tip | case_study | ...
+    main_topic: str       # 2-5 word topic label
+    resume_reference: bool = False        # True if post references Nikita's real experience
+    project_mentioned: str | None = None  # Project name if referenced

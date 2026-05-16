@@ -3,6 +3,19 @@ import pytest
 from modules.generator import ContentGenerator
 from modules.models import Article
 
+
+def test_generated_post_dataclass():
+    from modules.models import GeneratedPost
+    gp = GeneratedPost(
+        post_text="Hook\n\nBody",
+        image_prompt="dark background data visualization",
+        content_type="data_analytics_tip",
+        main_topic="SQL Window Functions",
+    )
+    assert gp.post_text == "Hook\n\nBody"
+    assert gp.resume_reference is False
+    assert gp.project_mentioned is None
+
 PROFILE = "I'm a Data Analyst with 4+ years of experience at Metropolitan Premium Properties in Dubai."
 
 
