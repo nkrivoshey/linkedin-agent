@@ -39,7 +39,7 @@ class PostRecord:
 class GeneratedPost:
     post_text: str        # Full LinkedIn post text
     image_prompt: str     # Prompt for image generation
-    content_type: str     # statistical_method | data_analytics_tip | case_study | ...
+    content_type: ContentType
     main_topic: str       # 2-5 word topic label
     resume_reference: bool = False        # True if post references Nikita's real experience
     project_mentioned: str | None = None  # Project name if referenced
