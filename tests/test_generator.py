@@ -81,3 +81,96 @@ def test_config_has_new_fields():
     assert cfg.engagement_threshold == 10
     assert cfg.enable_network_agent is False
     assert cfg.content_memory_lookback == 20
+
+
+# ---------------------------------------------------------------------------
+# New tests for Task 3: ContentGenerator returns GeneratedPost
+# ---------------------------------------------------------------------------
+
+from modules.models import Article, GeneratedPost  # noqa: E402
+
+
+def _make_article():
+    return Article(
+        title="Test Article", url="https://example.com",
+        summary="A summary about data analytics",
+        source="Test Source", published_at="2026-05-16",
+        keywords=["data", "analytics"],
+    )
+
+
+def test_generate_returns_generated_post():
+    with patch("anthropic.Anthropic") as mock_cls:
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.messages.create.return_value = MagicMock(content=[MagicMock(
+            text='{"post_text": "Hook\\n\\nBody #data", "image_prompt": "dark data viz", '
+                 '"main_topic": "SQL Tips", "resume_reference": false, "project_mentioned": null}'
+        )])
+        from modules.generator import ContentGenerator
+        gen = ContentGenerator(api_key="test", profile_text="profile")
+        result = gen.generate(_make_article())
+        assert isinstance(result, GeneratedPost)
+        assert result.post_text == "Hook\n\nBody #data"
+        assert result.image_prompt == "dark data viz"
+        assert result.main_topic == "SQL Tips"
+        assert result.resume_reference is False
+
+
+def test_generate_falls_back_on_invalid_json():
+    with patch("anthropic.Anthropic") as mock_cls:
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.messages.create.return_value = MagicMock(
+            content=[MagicMock(text="Plain text post without JSON")]
+        )
+        from modules.generator import ContentGenerator
+        gen = ContentGenerator(api_key="test", profile_text="profile")
+        result = gen.generate(_make_article())
+        assert isinstance(result, GeneratedPost)
+        assert result.post_text == "Plain text post without JSON"
+        assert result.image_prompt == ""
+
+
+def test_pick_content_type_respects_weights():
+    with patch("anthropic.Anthropic"):
+        from modules.generator import ContentGenerator, CONTENT_WEIGHTS
+        gen = ContentGenerator(api_key="test", profile_text="profile")
+        counts: dict[str, int] = {}
+        for _ in range(1000):
+            ct = gen._pick_content_type()
+            counts[ct] = counts.get(ct, 0) + 1
+        assert 200 < counts.get("statistical_method", 0) < 500
+        assert counts.get("industry_insight", 0) < 150
+        assert all(ct in counts for ct in CONTENT_WEIGHTS)
+
+
+def test_generate_accepts_explicit_content_type():
+    with patch("anthropic.Anthropic") as mock_cls:
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.messages.create.return_value = MagicMock(content=[MagicMock(
+            text='{"post_text": "Stats post", "image_prompt": "chart", '
+                 '"main_topic": "CUPED", "resume_reference": false, "project_mentioned": null}'
+        )])
+        from modules.generator import ContentGenerator
+        gen = ContentGenerator(api_key="test", profile_text="profile")
+        result = gen.generate(_make_article(), content_type="statistical_method")
+        assert result.content_type == "statistical_method"
+
+
+def test_generate_passes_forbidden_topics_in_prompt():
+    with patch("anthropic.Anthropic") as mock_cls:
+        mock_client = MagicMock()
+        mock_cls.return_value = mock_client
+        mock_client.messages.create.return_value = MagicMock(content=[MagicMock(
+            text='{"post_text": "post", "image_prompt": "", "main_topic": "x", '
+                 '"resume_reference": false, "project_mentioned": null}'
+        )])
+        from modules.generator import ContentGenerator
+        gen = ContentGenerator(api_key="test", profile_text="profile")
+        gen.generate(_make_article(), forbidden_topics=["MPP DWH", "Sberbank NLP"])
+        call_args = mock_client.messages.create.call_args
+        prompt_text = call_args[1]["messages"][0]["content"]
+        assert "MPP DWH" in prompt_text
+        assert "FORBIDDEN" in prompt_text
