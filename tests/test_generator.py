@@ -59,3 +59,25 @@ def test_generate_retries_on_failure(generator):
         result = generator.generate(article)
     assert result == "Success on third try."
     assert mock_model.generate_content.call_count == 3
+
+
+def test_config_has_new_fields():
+    import os
+    os.environ["ANTHROPIC_API_KEY"] = "test"
+    os.environ["NEWSAPI_KEY"] = "test"
+    os.environ["UNSPLASH_ACCESS_KEY"] = "test"
+    os.environ["TELEGRAM_BOT_TOKEN"] = "test"
+    os.environ["TELEGRAM_CHAT_ID"] = "test"
+    os.environ["LINKEDIN_ACCESS_TOKEN"] = "test"
+    os.environ["LINKEDIN_PERSON_URN"] = "test"
+    os.environ["NOTION_TOKEN"] = "test"
+    os.environ["NOTION_DATABASE_ID"] = "test"
+    from config import load_config
+    cfg = load_config()
+    assert hasattr(cfg, "huggingface_api_key")
+    assert hasattr(cfg, "engagement_threshold")
+    assert hasattr(cfg, "enable_network_agent")
+    assert hasattr(cfg, "content_memory_lookback")
+    assert cfg.engagement_threshold == 10
+    assert cfg.enable_network_agent is False
+    assert cfg.content_memory_lookback == 20

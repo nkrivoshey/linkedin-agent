@@ -23,6 +23,10 @@ class Config:
     post_time_utc: str
     timezone: str
     dry_run: bool
+    huggingface_api_key: str      # Goal 2: image generation (reserved for future)
+    content_memory_lookback: int  # Goal 3: how many recent posts to check for dedup
+    engagement_threshold: int     # Goal 4: reactions below this trigger boost comment
+    enable_network_agent: bool    # Goal 4: Phase B gate (always false)
 
 
 def load_config() -> Config:
@@ -43,6 +47,10 @@ def load_config() -> Config:
         post_time_utc=os.getenv("POST_TIME_UTC", "05:00"),
         timezone=os.getenv("TIMEZONE", "Asia/Dubai"),
         dry_run=os.getenv("DRY_RUN", "false").lower() == "true",
+        huggingface_api_key=os.getenv("HUGGINGFACE_API_KEY", ""),
+        content_memory_lookback=int(os.getenv("CONTENT_MEMORY_LOOKBACK", "20")),
+        engagement_threshold=int(os.getenv("ENGAGEMENT_THRESHOLD", "10")),
+        enable_network_agent=os.getenv("ENABLE_NETWORK_AGENT", "false").lower() == "true",
     )
 
 
