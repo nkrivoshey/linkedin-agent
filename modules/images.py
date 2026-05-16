@@ -60,11 +60,13 @@ class ImageFetcher:
         url = f"https://image.pollinations.ai/prompt/{encoded}"
         try:
             resp = requests.get(url, timeout=45, stream=True)
-            content_type = resp.headers.get("content-type", "")
-            resp.close()
-            if resp.status_code == 200 and "image" in content_type:
-                return url
-            logger.warning("Pollinations: status=%d content-type=%s", resp.status_code, content_type)
+            try:
+                content_type = resp.headers.get("content-type", "")
+                if resp.status_code == 200 and "image" in content_type:
+                    return url
+                logger.warning("Pollinations: status=%d content-type=%s", resp.status_code, content_type)
+            finally:
+                resp.close()
         except Exception as e:
             logger.warning("Pollinations did not respond: %s", e)
         return ""
