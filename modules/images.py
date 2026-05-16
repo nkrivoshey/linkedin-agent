@@ -1,28 +1,88 @@
+# modules/images.py — полная замена файла
+import logging
 import random
+import urllib.parse
+
 import requests
+
+logger = logging.getLogger(__name__)
 
 FALLBACK_QUERIES = [
     "data analytics dashboard",
-    "artificial intelligence technology",
-    "business intelligence",
+    "business intelligence visualization",
     "machine learning abstract",
-    "data science visualization",
+    "data science code",
     "technology innovation",
+    "professional office data",
 ]
+
+_IMAGE_STYLE = (
+    "clean data visualization aesthetic, minimalist infographic, "
+    "professional, dark background, subtle blue accent lines, no text overlays"
+)
 
 _CANDIDATES_PER_QUERY = 6
 _MAX_CANDIDATES = 15
 
 
 class ImageFetcher:
-    def __init__(self, unsplash_key: str, use_dalle: bool = False, openai_key: str = ""):
+    def __init__(
+        self,
+        unsplash_key: str,
+        use_dalle: bool = False,
+        openai_key: str = "",
+        huggingface_key: str = "",
+    ):
         self.unsplash_key = unsplash_key
         self.use_dalle = use_dalle
         self.openai_key = openai_key
+        self.huggingface_key = huggingface_key
         self._used_ids: set[str] = set()
 
+    def get_image(self, image_prompt: str, fallback_query: str) -> str:
+        """Main entry point. Tier 1: Pollinations.ai. Tier 2: Unsplash."""
+        if image_prompt:
+            url = self.generate_image(image_prompt)
+            if url:
+                logger.info("Image: generated via Pollinations.ai")
+                return url
+        url = self.fetch_image(fallback_query or random.choice(FALLBACK_QUERIES))
+        if url:
+            logger.info("Image: fetched from Unsplash (fallback)")
+        else:
+            logger.warning("Image: all sources failed — publishing without image")
+        return url
+
+    def generate_image(self, prompt: str) -> str:
+        """Tier 1: free generation via Pollinations.ai. Returns URL or empty string."""
+        full_prompt = f"{prompt}, {_IMAGE_STYLE}"
+        encoded = urllib.parse.quote(full_prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded}"
+        try:
+            resp = requests.get(url, timeout=45, stream=True)
+            content_type = resp.headers.get("content-type", "")
+            resp.close()
+            if resp.status_code == 200 and "image" in content_type:
+                return url
+            logger.warning("Pollinations: status=%d content-type=%s", resp.status_code, content_type)
+        except Exception as e:
+            logger.warning("Pollinations did not respond: %s", e)
+        return ""
+
+    def fetch_image(self, query: str) -> str:
+        """Tier 2: keyword search via Unsplash. Returns URL or empty string."""
+        candidates = self.fetch_candidates([query])
+        if not candidates:
+            return ""
+        fresh = [c for c in candidates if c["id"] not in self._used_ids]
+        pick = random.choice(fresh) if fresh else random.choice(candidates)
+        self._used_ids.add(pick["id"])
+        if len(self._used_ids) > 100:
+            self._used_ids.clear()
+        return pick["url"]
+
     def fetch(self, keywords: list[str]) -> str:
-        """Simple fetch — returns first good result. Used as fallback."""
+        """Deprecated — kept for backward compatibility."""
         if self.use_dalle and self.openai_key:
             return self._fetch_dalle(keywords)
         candidates = self.fetch_candidates(keywords)
@@ -36,14 +96,9 @@ class ImageFetcher:
         return pick["url"]
 
     def fetch_candidates(self, keywords: list[str]) -> list[dict]:
-        """
-        Fetch up to _MAX_CANDIDATES photos with metadata across all keywords.
-        Returns list of {id, url, description, alt_description, tags}.
-        """
         queries = keywords[:3] if keywords else [random.choice(FALLBACK_QUERIES)]
         seen_ids: set[str] = set()
         candidates: list[dict] = []
-
         for query in queries:
             if len(candidates) >= _MAX_CANDIDATES:
                 break
@@ -64,7 +119,6 @@ class ImageFetcher:
                     "tags": tags,
                 })
             if len(candidates) < _CANDIDATES_PER_QUERY:
-                # current query gave few results — also try fallback query
                 fb = random.choice(FALLBACK_QUERIES)
                 for r in self._search_raw(fb, page=1, per_page=_CANDIDATES_PER_QUERY):
                     if r["id"] in seen_ids or r["id"] in self._used_ids:
@@ -78,7 +132,6 @@ class ImageFetcher:
                         "alt_description": r.get("alt_description") or "",
                         "tags": tags,
                     })
-
         return candidates[:_MAX_CANDIDATES]
 
     def mark_used(self, image_url: str, candidates: list[dict]) -> None:
@@ -93,8 +146,7 @@ class ImageFetcher:
         try:
             resp = requests.get(
                 "https://api.unsplash.com/search/photos",
-                params={"query": query, "per_page": per_page, "page": page,
-                        "orientation": "landscape"},
+                params={"query": query, "per_page": per_page, "page": page, "orientation": "landscape"},
                 headers={"Authorization": f"Client-ID {self.unsplash_key}"},
                 timeout=10,
             )
