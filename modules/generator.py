@@ -172,6 +172,8 @@ class ContentGenerator:
 
     def _pick_case(self) -> str:
         available = [i for i in range(len(PERSONAL_CASES)) if i != self._last_case_idx]
+        if not available:
+            available = list(range(len(PERSONAL_CASES)))
         idx = random.choice(available)
         self._last_case_idx = idx
         return PERSONAL_CASES[idx]
@@ -276,8 +278,8 @@ class ContentGenerator:
                 idx = int(match.group()) - 1
                 if 0 <= idx < len(candidates):
                     return candidates[idx]["url"]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("pick_best_image failed, using first candidate: %s", e)
         return candidates[0]["url"]
 
     def suggest_image_keywords(self, title: str, post_text: str) -> list[str]:
@@ -320,6 +322,8 @@ class ContentGenerator:
                     max_tokens=1024,
                     messages=[{"role": "user", "content": prompt}],
                 )
+                if not message.content:
+                    raise ValueError("Empty content in Claude response")
                 return message.content[0].text
             except Exception as e:
                 last_error = e
