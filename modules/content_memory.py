@@ -21,8 +21,9 @@ class ContentMemory:
     def get_recent_posts(self, n: int = 20) -> list[dict]:
         return self._notion.get_recent_posts(n)
 
-    def get_forbidden_topics(self, recent_posts: list[dict]) -> list[str]:
+    def get_forbidden_topics(self, recent_posts: list[dict] | None) -> list[str]:
         """Projects mentioned in last 14 days are forbidden for reuse."""
+        recent_posts = recent_posts or []
         cutoff = date.today() - timedelta(days=_PROJECT_COOLDOWN_DAYS)
         forbidden: set[str] = set()
         for post in recent_posts:
@@ -39,8 +40,9 @@ class ContentMemory:
             logger.info("Forbidden projects (last %d days): %s", _PROJECT_COOLDOWN_DAYS, list(forbidden))
         return list(forbidden)
 
-    def pick_content_type(self, recent_posts: list[dict]) -> str:
+    def pick_content_type(self, recent_posts: list[dict] | None) -> str:
         """Weighted content type selection, downweighting case_study if published recently."""
+        recent_posts = recent_posts or []
         weights = dict(CONTENT_WEIGHTS)
         cutoff = date.today() - timedelta(days=_CASE_STUDY_COOLDOWN_DAYS)
         for post in recent_posts:
