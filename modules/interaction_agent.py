@@ -101,13 +101,16 @@ class InteractionAgent:
             logger.error("Failed to schedule boost check for %s: %s", post_id, e)
 
     def _run_boost_check(self, post_id: str, post_text: str, threshold: int) -> None:
-        stats = self._get_post_stats(post_id)
-        reactions = stats.get("numLikes", 0) + stats.get("numComments", 0)
-        logger.info("Post %s: %d reactions (threshold=%d)", post_id, reactions, threshold)
-        if reactions < threshold:
-            boost_text = self._generate_boost_comment(post_text)
-            self._post_comment(post_id, boost_text)
-            logger.info("Boost comment posted for %s", post_id)
+        try:
+            stats = self._get_post_stats(post_id)
+            reactions = stats.get("numLikes", 0) + stats.get("numComments", 0)
+            logger.info("Post %s: %d reactions (threshold=%d)", post_id, reactions, threshold)
+            if reactions < threshold:
+                boost_text = self._generate_boost_comment(post_text)
+                self._post_comment(post_id, boost_text)
+                logger.info("Boost comment posted for %s", post_id)
+        except Exception as e:
+            logger.error("Boost check failed for %s: %s", post_id, e)
 
     def _post_comment(self, post_id: str, comment_text: str) -> None:
         """Post comment via LinkedIn socialActions API."""
