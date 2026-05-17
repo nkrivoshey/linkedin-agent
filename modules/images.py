@@ -40,7 +40,12 @@ class ImageFetcher:
         self._used_ids: set[str] = set()
 
     def get_image(self, image_prompt: str, fallback_query: str) -> str:
-        """Main entry point. Tier 1: Pollinations.ai. Tier 2: Unsplash."""
+        """Main entry point. Tier 1: DALL-E 3 (if enabled) or Pollinations.ai. Tier 2: Unsplash."""
+        if image_prompt and self.use_dalle and self.openai_key:
+            url = self._fetch_dalle_prompt(image_prompt)
+            if url:
+                logger.info("Image: generated via DALL-E 3")
+                return url
         if image_prompt:
             url = self.generate_image(image_prompt)
             if url:
@@ -157,6 +162,17 @@ class ImageFetcher:
         if resp.status_code != 200:
             return []
         return resp.json().get("results", [])
+
+    def _fetch_dalle_prompt(self, prompt: str) -> str:
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.openai_key)
+            full_prompt = f"{prompt}. Professional, clean, suitable for LinkedIn post."
+            response = client.images.generate(model="dall-e-3", prompt=full_prompt[:4000], size="1024x1024", n=1)
+            return response.data[0].url
+        except Exception as e:
+            logger.warning("DALL-E 3 failed: %s", e)
+            return ""
 
     def _fetch_dalle(self, keywords: list[str]) -> str:
         try:
