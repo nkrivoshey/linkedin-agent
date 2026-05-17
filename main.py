@@ -1,6 +1,7 @@
 # main.py
 import asyncio
 import logging
+import re
 from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -94,8 +95,10 @@ def build_pipeline(cfg, bot: PostApprovalBot, scheduler: AsyncIOScheduler):
         notion.update_status(record.notion_page_id, "Published", linkedin_url=url)
         logger.info("Published: %s", url)
         # Goal 4: schedule auto-comments after publish
+        # Extract numeric post ID from URL (handles both urn:li:ugcPost and urn:li:activity)
         if url and not cfg.dry_run:
-            post_id = url.split("urn:li:activity:")[-1] if "urn:li:activity:" in url else ""
+            m = re.search(r"(\d{10,})", url)
+            post_id = m.group(1) if m else ""
             if post_id:
                 await interaction.schedule_first_comment(
                     post_id, record.post_text, record.notion_page_id, scheduler
