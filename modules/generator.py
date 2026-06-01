@@ -1,7 +1,10 @@
+import logging
 import random
 import time
 import anthropic
 from modules.models import Article
+
+logger = logging.getLogger(__name__)
 
 # Real cases from Nikita's experience — rotated across posts
 PERSONAL_CASES = [
@@ -196,7 +199,7 @@ class ContentGenerator:
                 if 0 <= idx < len(candidates):
                     return candidates[idx]["url"]
         except Exception:
-            pass
+            logger.exception("Image selection by Claude failed, using first candidate")
         return candidates[0]["url"]
 
     def suggest_image_keywords(self, title: str, post_text: str) -> list[str]:
@@ -220,6 +223,7 @@ class ContentGenerator:
             terms = [t.strip() for t in result.split(",") if t.strip()]
             return terms[:3] if terms else []
         except Exception:
+            logger.exception("Image keyword suggestion failed")
             return []
 
     def _call_with_retry(self, prompt: str) -> str:

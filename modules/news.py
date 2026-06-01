@@ -1,8 +1,11 @@
+import logging
 import random
 from datetime import datetime, timedelta, timezone
 import feedparser
 from newsapi import NewsApiClient
 from modules.models import Article
+
+logger = logging.getLogger(__name__)
 
 KEYWORD_CATEGORIES = {
     "ai_models": [
@@ -84,6 +87,7 @@ class NewsCollector:
                 sort_by="relevancy", page_size=10,
             )
         except Exception:
+            logger.exception("NewsAPI fetch failed")
             return []
         results = []
         for item in response.get("articles", []):
@@ -108,6 +112,7 @@ class NewsCollector:
             try:
                 feed = feedparser.parse(feed_url)
             except Exception:
+                logger.exception("RSS feed parse failed for %s", feed_url)
                 continue
             for entry in feed.entries[:5]:
                 url = getattr(entry, "link", "")

@@ -1,5 +1,8 @@
+import logging
 import random
 import requests
+
+logger = logging.getLogger(__name__)
 
 FALLBACK_QUERIES = [
     "data analytics dashboard",
@@ -99,6 +102,7 @@ class ImageFetcher:
                 timeout=10,
             )
         except Exception:
+            logger.exception("Unsplash API request failed")
             return []
         if resp.status_code != 200:
             return []
@@ -112,4 +116,5 @@ class ImageFetcher:
             response = client.images.generate(model="dall-e-3", prompt=prompt, size="1024x1024", n=1)
             return response.data[0].url
         except Exception:
+            logger.exception("DALL-E generation failed, falling back to Unsplash")
             return self.fetch(keywords)

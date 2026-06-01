@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime
 from notion_client import Client
 from modules.models import Article, PostRecord
+
+logger = logging.getLogger(__name__)
 
 
 class NotionLogger:
@@ -54,6 +57,7 @@ class NotionLogger:
         try:
             results = self.client.databases.query(database_id=self.database_id)
         except Exception:
+            logger.exception("Notion fetch published URLs failed — dedup disabled, duplicate post risk!")
             return set()
         urls = set()
         for page in results.get("results", []):
