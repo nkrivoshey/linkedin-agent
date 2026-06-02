@@ -5,14 +5,14 @@
 поиск новостей, публикация через Selenium. Railway deployment.
 
 ## Стек
-Python 3.11 · Anthropic API · Selenium · Railway · pytest
+Python 3.11 · Anthropic API · Railway · pytest
 
 ## Архитектура
 ```
 main.py (entrypoint, APScheduler)
   → modules/generator.py   (контент через LLM)
   → modules/news.py        (поиск новостей)
-  → modules/linkedin.py    (публикация через Selenium)
+  → modules/linkedin.py    (публикация через LinkedIn API)
   → modules/images.py      (генерация изображений)
   → modules/notion.py      (логирование в Notion)
 config.py                  (Pydantic Settings)
@@ -25,7 +25,7 @@ config.py                  (Pydantic Settings)
 - Деплой: push в main → Railway автоматически
 
 ## Переменные окружения
-Смотри `.env.example`. Обязательные: ANTHROPIC_API_KEY, LINKEDIN_EMAIL, LINKEDIN_PASSWORD.
+Смотри `.env.example`. Обязательные: ANTHROPIC_API_KEY, LINKEDIN_ACCESS_TOKEN, LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET.
 
 ## Правила
 - Production бот, работает 24/7 на Railway

@@ -12,7 +12,8 @@ def test_fetch_returns_url_on_success(fetcher):
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "results": [{"urls": {"regular": "https://images.unsplash.com/photo-123"}}]
+        "results": [{"id": "photo-123", "urls": {"regular": "https://images.unsplash.com/photo-123"},
+                     "description": None, "alt_description": None, "tags": []}]
     }
     with patch("modules.images.requests.get", return_value=mock_response):
         url = fetcher.fetch(keywords=["AI", "machine learning"])

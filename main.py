@@ -102,9 +102,27 @@ def build_pipeline(cfg, bot: PostApprovalBot):
 
 async def main():
     cfg = load_config()
-    hour, minute = cfg.post_time_utc.split(":")
-    days = ",".join(DOW_MAP[d.strip()] for d in cfg.post_schedule.split(",")
-                    if d.strip() in DOW_MAP)
+    try:
+        hour, minute = cfg.post_time_utc.split(":")
+        int(hour)
+        int(minute)
+    except (ValueError, AttributeError) as e:
+        raise ValueError(
+            f"Invalid POST_TIME_UTC={cfg.post_time_utc!r}: expected HH:MM format"
+        ) from e
+
+    try:
+        raw_days = [d.strip() for d in cfg.post_schedule.split(",") if d.strip()]
+        unknown = [d for d in raw_days if d not in DOW_MAP]
+        if unknown:
+            logger.warning("Unknown day(s) in POST_SCHEDULE, ignoring: %s", unknown)
+        days = ",".join(DOW_MAP[d] for d in raw_days if d in DOW_MAP)
+        if not days:
+            raise ValueError(f"POST_SCHEDULE={cfg.post_schedule!r} contains no valid days")
+    except (AttributeError, TypeError) as e:
+        raise ValueError(
+            f"Invalid POST_SCHEDULE={cfg.post_schedule!r}: expected comma-separated day abbreviations"
+        ) from e
 
     _refs: dict = {}
 

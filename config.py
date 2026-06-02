@@ -23,6 +23,11 @@ class Config:
     post_time_utc: str
     timezone: str
     dry_run: bool
+    content_memory_lookback: int
+    engagement_threshold: float
+    enable_network_agent: bool
+    huggingface_api_key: str
+    obsidian_vault_path: str
 
 
 def load_config() -> Config:
@@ -43,6 +48,11 @@ def load_config() -> Config:
         post_time_utc=os.getenv("POST_TIME_UTC", "05:00"),
         timezone=os.getenv("TIMEZONE", "Asia/Dubai"),
         dry_run=os.getenv("DRY_RUN", "false").lower() == "true",
+        content_memory_lookback=int(os.getenv("CONTENT_MEMORY_LOOKBACK", "30")),
+        engagement_threshold=float(os.getenv("ENGAGEMENT_THRESHOLD", "0.05")),
+        enable_network_agent=os.getenv("ENABLE_NETWORK_AGENT", "false").lower() == "true",
+        huggingface_api_key=os.getenv("HUGGINGFACE_API_KEY", ""),
+        obsidian_vault_path=os.getenv("OBSIDIAN_VAULT_PATH", ""),
     )
 
 

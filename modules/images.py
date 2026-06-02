@@ -105,8 +105,15 @@ class ImageFetcher:
             logger.exception("Unsplash API request failed")
             return []
         if resp.status_code != 200:
+            logger.error(
+                "Unsplash API returned non-200 status: %s for query=%r", resp.status_code, query
+            )
             return []
-        return resp.json().get("results", [])
+        try:
+            return resp.json().get("results", [])
+        except Exception:
+            logger.exception("Failed to parse Unsplash JSON response for query=%r", query)
+            return []
 
     def _fetch_dalle(self, keywords: list[str]) -> str:
         try:
