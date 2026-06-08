@@ -1,5 +1,8 @@
+import logging
 import requests
 from datetime import date
+
+logger = logging.getLogger(__name__)
 
 
 class LinkedInPublisher:
@@ -15,8 +18,13 @@ class LinkedInPublisher:
             "X-Restli-Protocol-Version": "2.0.0",
         }
 
-    def publish(self, text: str, image_url: str) -> str:
-        image_urn = self._upload_image(image_url) if image_url else None
+    def publish(self, text: str, image_url: str = "", image_bytes: bytes | None = None) -> str:
+        if image_bytes is not None:
+            image_urn = self._upload_image_bytes(image_bytes)
+        elif image_url:
+            image_urn = self._upload_image(image_url)
+        else:
+            image_urn = None
         body: dict = {
             "author": self.person_urn,
             "lifecycleState": "PUBLISHED",
@@ -59,6 +67,33 @@ class LinkedInPublisher:
         requests.put(upload_url, data=image_data,
                      headers={"Authorization": f"Bearer {self.access_token}"}, timeout=60)
         return asset_urn
+
+    def _upload_image_bytes(self, image_bytes: bytes) -> str | None:
+        register_payload = {
+            "registerUploadRequest": {
+                "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+                "owner": self.person_urn,
+                "serviceRelationships": [
+                    {"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}
+                ],
+            }
+        }
+        try:
+            resp = requests.post(f"{self.BASE_URL}/assets?action=registerUpload",
+                                 json=register_payload, headers=self._headers, timeout=30)
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            upload_url = data["value"]["uploadMechanism"][
+                "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+            ]["uploadUrl"]
+            asset_urn = data["value"]["asset"]
+            requests.put(upload_url, data=image_bytes,
+                         headers={"Authorization": f"Bearer {self.access_token}"}, timeout=60)
+            return asset_urn
+        except Exception:
+            logger.exception("LinkedIn image bytes upload failed")
+            return None
 
     def is_token_expiring_soon(self, warn_at_day: int = 55) -> bool:
         if not self.token_issued_at:
