@@ -10,7 +10,7 @@ Transform the LinkedIn automation bot from a news-aggregator into a **living per
 
 **Status:** Pending
 
-**Plans:** 10 plans
+**Plans:** 3/10 plans executed
 
 Plans:
 - [ ] 01-PLAN-1-config-models.md — Config new vars + PostRecord.post_type field
