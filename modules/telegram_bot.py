@@ -10,18 +10,28 @@ from telegram.ext import (
     ContextTypes, MessageHandler, filters,
 )
 from modules.models import Article, PostRecord
+from modules.questionnaire import (
+    QuestionnaireState, CATEGORIES, CALLBACK_TO_CATEGORY,
+    CALLBACK_DONE, category_keyboard,
+)
 
 logger = logging.getLogger(__name__)
 
 CALLBACK_PUBLISH = "publish"
 CALLBACK_REGENERATE = "regenerate"
 CALLBACK_SKIP = "skip"
+CALLBACK_NEW_IMAGE = "new_image"
 
-APPROVAL_KEYBOARD = InlineKeyboardMarkup([[
-    InlineKeyboardButton("✅ Publish Now", callback_data=CALLBACK_PUBLISH),
-    InlineKeyboardButton("✏️ Regenerate", callback_data=CALLBACK_REGENERATE),
-    InlineKeyboardButton("❌ Skip", callback_data=CALLBACK_SKIP),
-]])
+APPROVAL_KEYBOARD = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("✅ Publish Now", callback_data=CALLBACK_PUBLISH),
+        InlineKeyboardButton("✏️ Regenerate", callback_data=CALLBACK_REGENERATE),
+        InlineKeyboardButton("❌ Skip", callback_data=CALLBACK_SKIP),
+    ],
+    [
+        InlineKeyboardButton("🖼️ New Image", callback_data=CALLBACK_NEW_IMAGE),
+    ],
+])
 
 
 @dataclass
@@ -61,6 +71,8 @@ class PostApprovalBot:
         on_custom_post: Callable[[str], Coroutine] | None = None,
         dry_run: bool = False,
         manual_trigger: Callable[[], Coroutine] | None = None,
+        on_new_image: Callable[[PostRecord], Coroutine] | None = None,
+        on_context_entry: Callable[[str, str], Coroutine] | None = None,
     ):
         self.chat_id = chat_id
         self.on_publish = on_publish
@@ -69,7 +81,11 @@ class PostApprovalBot:
         self.on_custom_post = on_custom_post
         self.dry_run = dry_run
         self.manual_trigger = manual_trigger
+        self.on_new_image = on_new_image
+        self.on_context_entry = on_context_entry
         self._state = BotState()
+        self._q_state = QuestionnaireState()
+        self.context_store = None
         self.app = Application.builder().token(token).build()
         self._register_handlers()
 
@@ -112,13 +128,53 @@ class PostApprovalBot:
             parse_mode="HTML", reply_markup=APPROVAL_KEYBOARD,
         )
 
+    async def send_questionnaire(self) -> None:
+        """Start the weekly context questionnaire session."""
+        self._q_state.start()
+        await self.app.bot.send_message(
+            chat_id=self.chat_id,
+            text="🧠 <b>Weekly Context Update</b>\n\nWhat do you want to share this week?\nPick a category:",
+            parse_mode="HTML",
+            reply_markup=category_keyboard(),
+        )
+
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
-        await query.answer()
+        data = query.data
+
+        # Questionnaire callbacks handled first — whitelist check (T-08-02, D-03)
+        if data in CALLBACK_TO_CATEGORY and self._q_state.active:
+            await query.answer()
+            category = CALLBACK_TO_CATEGORY[data]
+            self._q_state.category_selected(category)
+            question = CATEGORIES[category]["question"]
+            await query.edit_message_reply_markup(reply_markup=None)
+            await context.bot.send_message(
+                chat_id=self.chat_id,
+                text=f"<b>{CATEGORIES[category]['label']}</b>\n\n{question}",
+                parse_mode="HTML",
+            )
+            return
+
+        if data == CALLBACK_DONE and self._q_state.active:
+            await query.answer()
+            n = len(self._q_state.entries_this_session)
+            self._q_state.finish()
+            await query.edit_message_reply_markup(reply_markup=None)
+            await context.bot.send_message(
+                chat_id=self.chat_id,
+                text=f"✅ Got {n} update{'s' if n != 1 else ''}! Next posts will feel alive 🔥",
+            )
+            return
+
+        # Standard approval flow
+        # For CALLBACK_NEW_IMAGE answer() is called with a status text further below (T-08-03)
+        if data != CALLBACK_NEW_IMAGE:
+            await query.answer()
         if self._state.current_record is None:
             await query.edit_message_reply_markup(reply_markup=None)
             return
-        action = query.data
+        action = data
         if action == CALLBACK_PUBLISH:
             record = self._state.current_record
             self._state.reset()
@@ -141,8 +197,27 @@ class PostApprovalBot:
                 chat_id=self.chat_id,
                 text="✏️ What should be changed? Write your comment:",
             )
+        elif action == CALLBACK_NEW_IMAGE:
+            if self._state.current_record is None:
+                return
+            # answer() called immediately to clear Telegram pending state (T-08-03)
+            await query.answer("🔄 Generating new image...")
+            if self.on_new_image:
+                await self.on_new_image(self._state.current_record)
 
     async def _handle_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # Questionnaire text handling — must come BEFORE BotState handlers (D-03)
+        if self._q_state.active and self._q_state.waiting_for_response:
+            entry = self._q_state.response_received(update.message.text)
+            if self.on_context_entry:
+                await self.on_context_entry(entry["category"], entry["text"])
+            await update.message.reply_text(
+                f"📝 Saved! (<i>{entry['category']}</i>)\n\nAdd another topic or tap Done:",
+                parse_mode="HTML",
+                reply_markup=category_keyboard(),
+            )
+            return
+
         if self._state.waiting_for_custom_text:
             raw_text = update.message.text
             self._state.waiting_for_custom_text = False
