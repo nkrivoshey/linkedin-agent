@@ -10,7 +10,6 @@ class Config:
     anthropic_api_key: str
     newsapi_key: str
     unsplash_access_key: str
-    use_dalle: bool
     openai_api_key: str
     telegram_bot_token: str
     telegram_chat_id: str
@@ -26,8 +25,9 @@ class Config:
     content_memory_lookback: int
     engagement_threshold: float
     enable_network_agent: bool
-    huggingface_api_key: str
-    obsidian_vault_path: str
+    use_gpt_image: bool
+    notion_context_db_id: str
+    questionnaire_schedule: str
 
 
 def load_config() -> Config:
@@ -35,7 +35,6 @@ def load_config() -> Config:
         anthropic_api_key=_require("ANTHROPIC_API_KEY"),
         newsapi_key=_require("NEWSAPI_KEY"),
         unsplash_access_key=_require("UNSPLASH_ACCESS_KEY"),
-        use_dalle=os.getenv("USE_DALLE", "false").lower() == "true",
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         telegram_bot_token=_require("TELEGRAM_BOT_TOKEN"),
         telegram_chat_id=_require("TELEGRAM_CHAT_ID"),
@@ -51,8 +50,9 @@ def load_config() -> Config:
         content_memory_lookback=int(os.getenv("CONTENT_MEMORY_LOOKBACK", "30")),
         engagement_threshold=float(os.getenv("ENGAGEMENT_THRESHOLD", "0.05")),
         enable_network_agent=os.getenv("ENABLE_NETWORK_AGENT", "false").lower() == "true",
-        huggingface_api_key=os.getenv("HUGGINGFACE_API_KEY", ""),
-        obsidian_vault_path=os.getenv("OBSIDIAN_VAULT_PATH", ""),
+        use_gpt_image=os.getenv("USE_GPT_IMAGE", "true").lower() == "true",
+        notion_context_db_id=os.getenv("NOTION_CONTEXT_DB_ID", ""),
+        questionnaire_schedule=os.getenv("QUESTIONNAIRE_SCHEDULE", "TUE,FRI"),
     )
 
 
