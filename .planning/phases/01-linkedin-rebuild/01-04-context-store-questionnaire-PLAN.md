@@ -4,7 +4,7 @@ plan: 4
 type: execute
 wave: 2
 depends_on:
-  - plan-1
+  - 01-01-config-models
 files_modified:
   - modules/context_store.py
   - modules/questionnaire.py

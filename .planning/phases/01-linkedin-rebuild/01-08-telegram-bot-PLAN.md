@@ -4,7 +4,7 @@ plan: 8
 type: execute
 wave: 3
 depends_on:
-  - plan-4
+  - 01-04-context-store-questionnaire
 files_modified:
   - modules/telegram_bot.py
 autonomous: true

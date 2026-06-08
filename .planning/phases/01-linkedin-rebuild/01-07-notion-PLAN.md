@@ -4,9 +4,9 @@ plan: 7
 type: execute
 wave: 3
 depends_on:
-  - plan-1
-  - plan-4
-  - plan-5
+  - 01-01-config-models
+  - 01-04-context-store-questionnaire
+  - 01-05-content-router
 files_modified:
   - modules/notion.py
 autonomous: true

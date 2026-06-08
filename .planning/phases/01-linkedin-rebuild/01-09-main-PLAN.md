@@ -4,13 +4,13 @@ plan: 9
 type: execute
 wave: 3
 depends_on:
-  - plan-1
-  - plan-2
-  - plan-3
-  - plan-5
-  - plan-6
-  - plan-7
-  - plan-8
+  - 01-01-config-models
+  - 01-02-images
+  - 01-03-linkedin
+  - 01-05-content-router
+  - 01-06-generator
+  - 01-07-notion
+  - 01-08-telegram-bot
 files_modified:
   - main.py
 autonomous: true

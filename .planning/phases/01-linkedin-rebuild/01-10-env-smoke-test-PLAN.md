@@ -4,7 +4,7 @@ plan: 10
 type: execute
 wave: 4
 depends_on:
-  - plan-9
+  - 01-09-main
 files_modified:
   - .env.example
 autonomous: false

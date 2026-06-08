@@ -4,8 +4,8 @@ plan: 6
 type: execute
 wave: 2
 depends_on:
-  - plan-1
-  - plan-4
+  - 01-01-config-models
+  - 01-04-context-store-questionnaire
 files_modified:
   - modules/generator.py
 autonomous: true
