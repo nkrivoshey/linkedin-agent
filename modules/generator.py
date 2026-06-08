@@ -1,20 +1,10 @@
 import logging
-import random
+import os
 import time
 import anthropic
 from modules.models import Article
 
 logger = logging.getLogger(__name__)
-
-# Real cases from Nikita's experience — rotated across posts
-PERSONAL_CASES = [
-    "At Metropolitan Premium Properties (Dubai's largest premium real estate brokerage), I built the full analytics stack from scratch — DWH architecture, CRM integration, Power BI dashboards — that drove a 10% revenue uplift.",
-    "At Metropolitan Premium Properties, my analytics automation cut reporting turnaround 5× and boosted team productivity by 90%. The key was replacing manual Excel exports with a live CRM-connected pipeline.",
-    "At Metropolitan, I own end-to-end data: from raw CRM events to executive dashboards C-suite actually uses for decisions. The hardest part wasn't the SQL — it was figuring out which metric actually drives broker performance.",
-    "At Sberbank (70M+ customers, Russia's largest bank), I built NLP pipelines that detected 1.5M+ compliance violations across millions of documents — what used to take weeks, now runs overnight.",
-    "At Sberbank, my ML model flagged 300K+ bankruptcy breaches in near-real-time. The lesson: a simple threshold model with good features beats a complex model with bad data every time.",
-    "Working in Dubai real estate taught me that the right KPI framing matters more than the dashboard. Brokers need to see 'deals at risk' — not 'conversion rate'. Language shapes behavior.",
-]
 
 BASE_PROMPT = """You are writing a LinkedIn post for the following professional:
 
@@ -77,66 +67,50 @@ PREVIOUS DRAFT (improve it, don't repeat):
 USER FEEDBACK (apply this):
 {feedback}"""
 
+PERSONAL_POST_PROMPT_V3 = """You are writing a LinkedIn post AS Nikita Krivoshei (first person).
+
+{profile}
+
+---
+
+Raw context Nikita shared ({category} category):
+"{context_text}"
+
+Write rules:
+- Hook: 1-2 punchy lines. NEVER start with 'I'. Bold claim, number, or question.
+- Body: 3-4 short paragraphs. Stay close to raw context. Be specific.
+- Voice: direct, slightly blunt, data-driven. Like a senior analyst texting a colleague -- not a LinkedIn influencer.
+- No em-dashes (--). No 'Here's what I learned:' headers. No bullet lists of lessons.
+- Mix sentence lengths naturally.
+- CTA: ONE specific question or challenge. Not 'What do you think?' -- something concrete.
+- Hashtags: 5-7 on last line. Mix specific + career visibility. NEVER #OpenToWork.
+
+Category tone:
+- work -> technical precision, real numbers, honest about the mess
+- opinion -> confident, willing to be wrong, invites pushback
+- learning -> curiosity + practical application, 'here's what changed my approach'
+- life -> observational, connects personal to professional, not braggy
+
+Write ONLY the post. No meta-commentary.
+Hashtags are MANDATORY."""
+
 
 class ContentGenerator:
     def __init__(self, api_key: str, profile_text: str, max_retries: int = 3):
+        # Claude Code sets ANTHROPIC_AUTH_TOKEN='' in system env.
+        # SDK v0.96.0 reads it and creates "Authorization: Bearer " (empty) -> h11 rejects.
+        # Fix: remove the empty token so SDK falls back to X-Api-Key header only.
+        if not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+            os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
         self.client = anthropic.Anthropic(api_key=api_key)
         self.profile_text = profile_text
         self.max_retries = max_retries
-        self._last_case_idx: int = -1
-
-    def _pick_case(self) -> str:
-        available = [i for i in range(len(PERSONAL_CASES)) if i != self._last_case_idx]
-        idx = random.choice(available)
-        self._last_case_idx = idx
-        return PERSONAL_CASES[idx]
-
-    def _pick_post_style(self) -> str:
-        styles = [
-            ("pure_insight", 30),
-            ("with_case", 30),
-            ("personal_story", 15),
-            ("personal_project", 15),
-            ("health_productivity", 10),
-        ]
-        names, weights = zip(*styles)
-        chosen = random.choices(names, weights=weights, k=1)[0]
-
-        if chosen == "pure_insight":
-            return (
-                "Pure insight post — share the key takeaway from the article. "
-                "Focus on what this means for data professionals. Include a bold opinion or contrarian take."
-            )
-        elif chosen == "with_case":
-            case = self._pick_case()
-            return (
-                f"Insight post with a personal reference. Naturally weave in this real experience "
-                f"(1-2 sentences max): '{case}'. Then expand on the broader lesson from the article."
-            )
-        elif chosen == "personal_story":
-            case = self._pick_case()
-            return (
-                f"Personal story post — open with this real experience: '{case}'. "
-                f"Connect it to the article topic. Make it feel like a lesson learned, not a brag."
-            )
-        elif chosen == "personal_project":
-            case = self._pick_case()
-            return (
-                f"Portfolio showcase post — use the article as a springboard to deep-dive on this "
-                f"real project: '{case}'. Go specific: what was the technical challenge, what decision "
-                f"was made, what was the measured outcome. This is a self-presentation post — make it "
-                f"compelling for a hiring manager or potential collaborator reading it."
-            )
-        else:  # health_productivity
-            return (
-                "Health & productivity insight post — connect the article topic to focus, deep work, "
-                "cognitive performance, or team wellbeing. Share a practical take: what data professionals "
-                "can do to stay sharp and productive. Personal angle welcome but not required. "
-                "Tone: grounded and practical, not motivational fluff."
-            )
 
     def generate(self, article: Article) -> str:
-        post_style = self._pick_post_style()
+        post_style = (
+            "Pure insight post -- share the key takeaway. "
+            "Focus on data professionals. Bold opinion or contrarian take."
+        )
         prompt = BASE_PROMPT.format(
             profile=self.profile_text,
             title=article.title, source=article.source,
@@ -146,7 +120,10 @@ class ContentGenerator:
         return self._call_with_retry(prompt)
 
     def regenerate(self, article: Article, previous_draft: str, feedback: str) -> str:
-        post_style = self._pick_post_style()
+        post_style = (
+            "Pure insight post -- share the key takeaway. "
+            "Focus on data professionals. Bold opinion or contrarian take."
+        )
         prompt = REGEN_PROMPT.format(
             profile=self.profile_text,
             title=article.title, source=article.source,
@@ -163,6 +140,54 @@ class ContentGenerator:
         )
         return self._call_with_retry(prompt)
 
+    def generate_personal(self, entries: list[dict], post_type: str) -> str:
+        """Generate a personal LinkedIn post from context entries.
+
+        Args:
+            entries: list of dicts with 'category' and 'text' keys,
+                     as returned by ContextStore.get_unused_entries().
+                     If empty, AI generates a fallback theme from profile_text.
+            post_type: one of 'personal_story' | 'hot_take' | 'achievement' | 'learning'
+
+        Returns:
+            Generated post text.
+        """
+        if not entries:
+            context_text = self._generate_fallback_theme(post_type)
+            category = "work"
+        else:
+            entry = entries[0]
+            category = entry.get("category", "work")
+            context_text = entry.get("text", "")
+
+        prompt = PERSONAL_POST_PROMPT_V3.format(
+            profile=self.profile_text,
+            category=category,
+            context_text=context_text,
+        )
+        return self._call_with_retry(prompt)
+
+    def _generate_fallback_theme(self, post_type: str) -> str:
+        """Ask AI to generate a specific work insight for the given post type."""
+        type_descriptions = {
+            "personal_story": "tells a personal professional story about a challenge or win",
+            "hot_take": "presents a bold contrarian opinion on data/analytics/tech",
+            "achievement": "highlights a concrete professional achievement with metrics",
+            "learning": "shares a practical learning or insight that changed your approach",
+        }
+        description = type_descriptions.get(
+            post_type,
+            "shares a relevant professional insight or observation"
+        )
+        fallback_prompt = (
+            f"Generate a specific work insight or observation that {description} "
+            f"for Nikita Krivoshei's LinkedIn post, based on this profile:\n\n"
+            f"{self.profile_text}\n\n"
+            f"Return ONLY the context text (2-3 sentences). "
+            f"Be specific -- include real numbers or situations."
+        )
+        return self._call_with_retry(fallback_prompt)
+
     def pick_best_image(self, candidates: list[dict], post_text: str) -> str:
         """
         Given Unsplash candidates with metadata, ask Claude to pick the one
@@ -176,7 +201,7 @@ class ContentGenerator:
 
         lines = []
         for i, c in enumerate(candidates, 1):
-            tags = ", ".join(c["tags"][:8]) if c["tags"] else "—"
+            tags = ", ".join(c["tags"][:8]) if c["tags"] else "--"
             desc = c["description"] or c["alt_description"] or "no description"
             lines.append(f"{i}. Description: \"{desc[:120]}\" | Tags: {tags}")
 
@@ -187,7 +212,7 @@ class ContentGenerator:
             f"Which photo number best visually represents the post topic? "
             f"Consider: does the description/tags match the post theme? "
             f"Prefer concrete, professional imagery over generic abstracts.\n"
-            f"Reply with ONLY the number (1–{len(candidates)})."
+            f"Reply with ONLY the number (1-{len(candidates)})."
         )
         try:
             raw = self._call_with_retry(prompt).strip()
@@ -213,7 +238,7 @@ class ContentGenerator:
             f"3. A broader but still relevant fallback\n\n"
             f"Rules:\n"
             f"- Think like a photo editor: what IMAGE would run alongside this story in a magazine?\n"
-            f"- Avoid abstract concepts — search for things that photograph well\n"
+            f"- Avoid abstract concepts -- search for things that photograph well\n"
             f"- Good: 'analyst working laptop night office', 'neural network chip closeup', 'team meeting whiteboard data'\n"
             f"- Bad: 'technology', 'innovation', 'business'\n\n"
             f"Return ONLY 3 comma-separated search queries, nothing else."
