@@ -24,3 +24,4 @@ class PostRecord:
     generation_count: int = 1
     linkedin_url: str = ""
     publish_date: str = ""
+    post_type: str = ""
